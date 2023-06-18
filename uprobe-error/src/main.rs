@@ -29,13 +29,20 @@ async fn main() -> Result<(), anyhow::Error> {
     let mut bpf = Bpf::load(include_bytes_aligned!(
         "../../target/bpfel-unknown-none/release/uprobe-error"
     ))?;
+
     if let Err(e) = BpfLogger::init(&mut bpf) {
         // This can happen if you remove all log statements from your eBPF program.
         warn!("failed to initialize eBPF logger: {}", e);
     }
+    let lib_path = std::env::current_dir()
+        .unwrap()
+        .join("liboringssl.so");
+
+    info!("current dir: {:?}", lib_path);
+
     let program: &mut UProbe = bpf.program_mut("uprobe_error").unwrap().try_into()?;
     program.load()?;
-    program.attach(Some("SSL_read"), 0, "liboringssl.so", opt.pid)?;
+    program.attach(Some("SSL_read"), 0, lib_path, opt.pid)?;
 
     info!("Waiting for Ctrl-C...");
     signal::ctrl_c().await?;
